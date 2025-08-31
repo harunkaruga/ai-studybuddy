@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Buddy - Flashcard Generator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .input-section, .flashcards-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea.form-control {
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .flashcards-container {
+            display: grid;
+            gap: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .flashcard {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .flashcard:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .flashcard-back {
+            background: #f8f9fa;
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-number {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i> AI Study Buddy</h1>
+            <p>Transform your study notes into interactive flashcards instantly!</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Input Section -->
+            <div class="input-section">
+                <h2 class="section-title">
+                    <i class="fas fa-edit"></i>
+                    Study Notes Input
+                </h2>
+                
+                <form id="flashcardForm">
+                    <div class="form-group">
+                        <label for="subject">Subject:</label>
+                        <input type="text" id="subject" class="form-control" placeholder="e.g., Biology, Math, History..." value="General">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Study Notes:</label>
+                        <textarea id="notes" class="form-control" placeholder="Paste your study notes here...&#10;&#10;Example:&#10;Photosynthesis is the process by which plants convert sunlight into energy. The process occurs in the chloroplasts and requires carbon dioxide and water. The main products are glucose and oxygen." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="numCards">Number of Flashcards:</label>
+                        <input type="number" id="numCards" class="form-control" min="3" max="10" value="5">
+                    </div>
+                    
+                    <button type="submit" class="btn" id="generateBtn">
+                        <i class="fas fa-magic"></i>
+                        Generate Flashcards
+                    </button>
+                </form>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating your flashcards...</p>
+                </div>
+            </div>
+
+            <!-- Flashcards Section -->
+            <div class="flashcards-section">
+                <h2 class="section-title">
+                    <i class="fas fa-layer-group"></i>
+                    Your Flashcards
+                </h2>
+                
+                <div id="alertContainer"></div>
+                
+                <div class="stats" id="stats" style="display: none;">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalCards">0</div>
+                        <div class="stat-label">Total Cards</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="currentCard">0</div>
+                        <div class="stat-label">Current Card</div>
+                    </div>
+                </div>
+                
+                <div class="flashcards-container" id="flashcardsContainer">
+                    <div style="text-align: center; color: #666; padding: 40px;">
+                        <i class="fas fa-lightbulb" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                        <p>Enter your study notes and click "Generate Flashcards" to get started!</p>
+                    </div>
+                </div>
+                
+                <div class="controls" id="controls" style="display: none;">
+                    <button class="btn btn-secondary" id="prevBtn">
+                        <i class="fas fa-chevron-left"></i>
+                        Previous
+                    </button>
+                    <button class="btn btn-secondary" id="nextBtn">
+                        Next
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-secondary" id="shuffleBtn">
+                        <i class="fas fa-random"></i>
+                        Shuffle
+                    </button>
+                    <button class="btn btn-secondary" id="saveSessionBtn">
+                        <i class="fas fa-save"></i>
+                        Save Session
+                    </button>
+                    <button class="btn btn-secondary" id="exportBtn">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class FlashcardManager {
+            constructor() {
+                this.flashcards = [];
+                this.currentIndex = 0;
+                this.originalOrder = [];
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.loadSavedFlashcards();
+            }
+
+            bindEvents() {
+                document.getElementById('flashcardForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.generateFlashcards();
+                });
+
+                document.getElementById('prevBtn').addEventListener('click', () => this.previousCard());
+                document.getElementById('nextBtn').addEventListener('click', () => this.nextCard());
+                document.getElementById('shuffleBtn').addEventListener('click', () => this.shuffleCards());
+                document.getElementById('saveSessionBtn').addEventListener('click', () => this.saveSession());
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportFlashcards());
+            }
+
+            async generateFlashcards() {
+                const notes = document.getElementById('notes').value.trim();
+                const subject = document.getElementById('subject').value.trim();
+                const numCards = parseInt(document.getElementById('numCards').value);
+
+                if (!notes) {
+                    this.showAlert('Please enter your study notes!', 'error');
+                    return;
+                }
+
+                this.showLoading(true);
+                this.showAlert('', 'success');
+
+                try {
+                    const response = await fetch('/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            notes: notes,
+                            subject: subject,
+                            num_cards: numCards
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.flashcards = data.flashcards;
+                        this.originalOrder = [...this.flashcards];
+                        this.currentIndex = 0;
+                        this.displayFlashcards();
+                        this.showAlert(data.message, 'success');
+                    } else {
+                        this.showAlert(data.error || 'Failed to generate flashcards', 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Network error. Please try again.', 'error');
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            displayFlashcards() {
+                const container = document.getElementById('flashcardsContainer');
+                const stats = document.getElementById('stats');
+                const controls = document.getElementById('controls');
+
+                if (this.flashcards.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; color: #666; padding: 40px;">
+                            <i class="fas fa-lightbulb" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <p>No flashcards generated yet.</p>
+                        </div>
+                    `;
+                    stats.style.display = 'none';
+                    controls.style.display = 'none';
+                    return;
+                }
+
+                container.innerHTML = '';
+                stats.style.display = 'flex';
+                controls.style.display = 'flex';
+
+                this.flashcards.forEach((card, index) => {
+                    const flashcard = document.createElement('div');
+                    flashcard.className = 'flashcard';
+                    flashcard.style.display = index === this.currentIndex ? 'block' : 'none';
+                    
+                    flashcard.innerHTML = `
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                                <div class="flashcard-number">${index + 1} / ${this.flashcards.length}</div>
+                                <div>${card.question}</div>
+                            </div>
+                            <div class="flashcard-back">
+                                <div>${card.answer}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    flashcard.addEventListener('click', () => {
+                        flashcard.classList.toggle('flipped');
+                    });
+
+                    container.appendChild(flashcard);
+                });
+
+                this.updateStats();
+            }
+
+            updateStats() {
+                document.getElementById('totalCards').textContent = this.flashcards.length;
+                document.getElementById('currentCard').textContent = this.currentIndex + 1;
+            }
+
+            previousCard() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.displayFlashcards();
+                }
+            }
+
+            nextCard() {
+                if (this.currentIndex < this.flashcards.length - 1) {
+                    this.currentIndex++;
+                    this.displayFlashcards();
+                }
+            }
+
+            shuffleCards() {
+                for (let i = this.flashcards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.flashcards[i], this.flashcards[j]] = [this.flashcards[j], this.flashcards[i]];
+                }
+                this.currentIndex = 0;
+                this.displayFlashcards();
+                this.showAlert('Cards shuffled!', 'success');
+            }
+
+            async saveSession() {
+                const sessionName = prompt('Enter a name for this study session:');
+                if (!sessionName) return;
+
+                try {
+                    const response = await fetch('/save-session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            session_name: sessionName,
+                            flashcard_ids: this.flashcards.map(card => card.id || 'temp-id')
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        this.showAlert('Session saved successfully!', 'success');
+                    } else {
+                        this.showAlert(data.error || 'Failed to save session', 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Failed to save session', 'error');
+                }
+            }
+
+            async exportFlashcards() {
+                try {
+                    const response = await fetch('/export/json');
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        const blob = new Blob([JSON.stringify(data.flashcards, null, 2)], {
+                            type: 'application/json'
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'flashcards.json';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        this.showAlert('Flashcards exported successfully!', 'success');
+                    } else {
+                        this.showAlert(data.error || 'Failed to export', 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Failed to export flashcards', 'error');
+                }
+            }
+
+            async loadSavedFlashcards() {
+                try {
+                    const response = await fetch('/flashcards');
+                    const data = await response.json();
+                    
+                    if (response.ok && data.flashcards.length > 0) {
+                        this.flashcards = data.flashcards.map(card => ({
+                            question: card.question,
+                            answer: card.answer,
+                            id: card.id
+                        }));
+                        this.originalOrder = [...this.flashcards];
+                        this.currentIndex = 0;
+                        this.displayFlashcards();
+                    }
+                } catch (error) {
+                    console.log('No saved flashcards found');
+                }
+            }
+
+            showLoading(show) {
+                const loading = document.getElementById('loading');
+                const generateBtn = document.getElementById('generateBtn');
+                
+                if (show) {
+                    loading.style.display = 'block';
+                    generateBtn.disabled = true;
+                } else {
+                    loading.style.display = 'none';
+                    generateBtn.disabled = false;
+                }
+            }
+
+            showAlert(message, type) {
+                const container = document.getElementById('alertContainer');
+                
+                if (!message) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="alert alert-${type}">
+                        ${message}
+                    </div>
+                `;
+
+                if (type === 'success') {
+                    setTimeout(() => {
+                        container.innerHTML = '';
+                    }, 3000);
+                }
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new FlashcardManager();
+        });
+    </script>
+</body>
+</html>
