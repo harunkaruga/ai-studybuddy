@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<<<<<<< HEAD
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Study Buddy - Flashcard Generator</title>
@@ -647,5 +648,127 @@
             new FlashcardManager();
         });
     </script>
+=======
+  <meta charset="UTF-8">
+  <title>AI Study Buddy — Flashcard Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f4f6f8;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    button {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background-color: #3498db;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #flashcards {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: white;
+      width: 100%;
+      height: 150px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+    .inner-card {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 12px;
+    }
+    .card:hover .inner-card {
+      transform: rotateY(180deg);
+    }
+    .front, .back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    .front {
+      background-color: #3498db;
+      color: white;
+    }
+    .back {
+      background-color: #ecf0f1;
+      color: #2c3e50;
+      transform: rotateY(180deg);
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Study Buddy — Flashcard Generator</h1>
+  <textarea id="notes" placeholder="Paste your study notes here..."></textarea>
+  <button onclick="generate()">Generate Flashcards</button>
+  <div id="flashcards"></div>
+
+  <script>
+    async function generate() {
+      const notes = document.getElementById("notes").value;
+
+      const response = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes })
+      });
+
+      const data = await response.json();
+      const container = document.getElementById("flashcards");
+      container.innerHTML = "";
+
+      data.flashcards.forEach(fc => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div class="inner-card">
+            <div class="front">Q: ${fc.question}</div>
+            <div class="back">A: ${fc.answer}</div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+  </script>
+>>>>>>> a267e01f0482997f45023322ba08a2be5e3807bc
 </body>
 </html>
+

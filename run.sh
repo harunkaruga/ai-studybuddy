@@ -26,3 +26,4 @@ echo "Press Ctrl+C to stop the server"
 echo
 
 python3 app.py
+

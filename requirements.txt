@@ -3,3 +3,4 @@ openai==0.28.1
 mysql-connector-python==8.1.0
 python-dotenv==1.0.0
 Werkzeug==2.3.7
+

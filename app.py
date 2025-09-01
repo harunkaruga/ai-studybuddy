@@ -59,11 +59,25 @@ def create_database():
         conn.close()
         print("Database and tables created successfully!")
         
-    except Exception as e:
+    except mysql.connector.Error as e:
         print(f"Database setup error: {e}")
+        print("⚠️  MySQL connection failed. The app will run in demo mode.")
+        print("🔧 To fix this:")
+        print("   1. Make sure MySQL server is running")
+        print("   2. Update database credentials in config.py or set environment variables")
+        print("   3. Or run 'python demo.py' for a version without database")
+        return False
+    except Exception as e:
+        print(f"Unexpected database error: {e}")
+        return False
 
 def generate_flashcards(notes, num_cards=5):
     """Generate flashcards using OpenAI API"""
+    # Check if we have a valid API key
+    if Config.OPENAI_API_KEY == 'demo-mode-no-api-key' or Config.OPENAI_API_KEY == 'your-openai-api-key-here':
+        print("⚠️  OpenAI API key not configured - using fallback flashcard generation")
+        return create_fallback_flashcards(notes, num_cards)
+    
     try:
         prompt = f"""
         Create {num_cards} educational flashcards from the following study notes. 
@@ -76,7 +90,8 @@ def generate_flashcards(notes, num_cards=5):
         Generate {num_cards} flashcards that cover the key concepts and important details.
         """
         
-        response = openai.ChatCompletion.create(
+        # Use the newer OpenAI API format
+        response = openai.chat.completions.create(
             model=Config.OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "You are an educational assistant that creates effective flashcards from study materials."},
@@ -105,6 +120,7 @@ def generate_flashcards(notes, num_cards=5):
             
     except Exception as e:
         print(f"OpenAI API error: {e}")
+        print("⚠️  Falling back to simple flashcard generation")
         return create_fallback_flashcards(notes, num_cards)
 
 def create_fallback_flashcards(notes, num_cards):
@@ -143,8 +159,13 @@ def save_flashcards_to_db(flashcards, subject="General"):
         conn.close()
         return saved_ids
         
-    except Exception as e:
+    except mysql.connector.Error as e:
         print(f"Database save error: {e}")
+        print("⚠️  Saving to database failed - using temporary IDs")
+        # Return temporary IDs for demo mode
+        return [f"temp-{i}" for i in range(len(flashcards))]
+    except Exception as e:
+        print(f"Unexpected database error: {e}")
         return []
 
 @app.route('/')
@@ -194,6 +215,9 @@ def get_flashcards():
         
         return jsonify({'flashcards': flashcards})
         
+    except mysql.connector.Error as e:
+        print(f"Database read error: {e}")
+        return jsonify({'flashcards': [], 'message': 'Database unavailable - no saved flashcards'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -221,6 +245,9 @@ def save_session():
         
         return jsonify({'session_id': session_id, 'message': 'Session saved successfully!'})
         
+    except mysql.connector.Error as e:
+        print(f"Database save session error: {e}")
+        return jsonify({'error': 'Database unavailable - session not saved'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -245,12 +272,26 @@ def export_flashcards(format):
         else:
             return jsonify({'error': 'Unsupported format'}), 400
             
+    except mysql.connector.Error as e:
+        print(f"Database export error: {e}")
+        return jsonify({'error': 'Database unavailable - cannot export flashcards'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Create database on startup
-    create_database()
+    db_success = create_database()
+    
+    if not db_success:
+        print("\n🚀 Starting AI Study Buddy in Demo Mode")
+        print("⚠️  Database connection failed - some features will be limited")
+        print("🌐 Application will be available at: http://localhost:5000")
+        print("📖 For full functionality, fix database connection or run 'python demo.py'")
+        print("-" * 50)
+    else:
+        print("🚀 Starting AI Study Buddy with Database")
+        print("🌐 Application will be available at: http://localhost:5000")
+        print("-" * 50)
     
     # Run the app
     app.run(debug=True, host='0.0.0.0', port=5000)
