@@ -5,6 +5,7 @@ This version runs without MySQL for testing purposes.
 """
 
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import openai
 import json
 import os
@@ -16,6 +17,9 @@ from config import Config
 
 app = Flask(__name__)
 
+# Enable CORS for deployment
+CORS(app)
+
 # Configuration
 app.config['SECRET_KEY'] = Config.SECRET_KEY
 openai.api_key = Config.OPENAI_API_KEY
@@ -25,6 +29,7 @@ flashcards_storage = []
 sessions_storage = []
 users_storage = []
 sessions_storage_auth = []
+password_reset_tokens = []
 
 # Simple user management for demo
 def hash_password(password, salt=None):
@@ -66,6 +71,42 @@ def verify_session_token(session_token):
                         'username': user['username'],
                         'email': user['email']
                     }
+    return None
+
+def create_password_reset_token(email):
+    """Create a password reset token"""
+    # Find user by email
+    user = None
+    for u in users_storage:
+        if u['email'] == email:
+            user = u
+            break
+    
+    if not user:
+        return None, "Email not found"
+    
+    # Create reset token
+    reset_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(hours=1)
+    
+    reset_data = {
+        'email': email,
+        'token': reset_token,
+        'expires_at': expires_at,
+        'user_id': user['id']
+    }
+    
+    # Remove any existing tokens for this user
+    password_reset_tokens[:] = [t for t in password_reset_tokens if t['email'] != email]
+    password_reset_tokens.append(reset_data)
+    
+    return reset_token, user['username']
+
+def verify_reset_token(token):
+    """Verify password reset token"""
+    for reset_data in password_reset_tokens:
+        if reset_data['token'] == token and reset_data['expires_at'] > datetime.now():
+            return reset_data
     return None
 
 def generate_flashcards(notes, num_cards=5):
@@ -232,6 +273,81 @@ def login():
         })
             
     except Exception as e:
+                    return jsonify({'error': str(e)}), 500
+
+@app.route('/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """Send password reset email (simulated)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+            
+        email = data.get('email', '').strip()
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Create reset token
+        reset_token, username = create_password_reset_token(email)
+        
+        if not reset_token:
+            return jsonify({'error': 'Email not found'}), 404
+        
+        # In a real app, you would send an email here
+        # For demo purposes, we'll return the token
+        print(f"Password reset requested for: {email}, token: {reset_token}")
+        
+        return jsonify({
+            'message': f'Password reset instructions sent to {email}',
+            'demo_token': reset_token,  # Only for demo - remove in production
+            'note': 'In production, this token would be sent via email'
+        })
+        
+    except Exception as e:
+        print(f"Forgot password error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data received'}), 400
+            
+        token = data.get('token', '').strip()
+        new_password = data.get('new_password', '')
+        
+        if not token or not new_password:
+            return jsonify({'error': 'Token and new password are required'}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        
+        # Verify token
+        reset_data = verify_reset_token(token)
+        if not reset_data:
+            return jsonify({'error': 'Invalid or expired token'}), 400
+        
+        # Find user and update password
+        user_id = reset_data['user_id']
+        for user in users_storage:
+            if user['id'] == user_id:
+                salt, password_hash = hash_password(new_password)
+                user['password_hash'] = password_hash
+                user['salt'] = salt
+                
+                # Remove used token
+                password_reset_tokens[:] = [t for t in password_reset_tokens if t['token'] != token]
+                
+                print(f"Password reset successful for user: {user['username']}")
+                return jsonify({'message': 'Password reset successfully!'})
+        
+        return jsonify({'error': 'User not found'}), 404
+        
+    except Exception as e:
+        print(f"Reset password error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/auth/logout', methods=['POST'])
@@ -388,7 +504,8 @@ def get_status():
             'user_login': True,
             'save_flashcards': True,
             'export_flashcards': True,
-            'save_sessions': True
+            'save_sessions': True,
+            'forgot_password': True
         }
     })
 
@@ -403,6 +520,53 @@ def demo_info():
             'sessions_count': len(sessions_storage)
         }
     })
+
+@app.route('/debug')
+def debug_info():
+    """Debug endpoint for troubleshooting deployment issues"""
+    return jsonify({
+        'app_name': 'AI Study Buddy Demo',
+        'status': 'running',
+        'timestamp': datetime.now().isoformat(),
+        'users_count': len(users_storage),
+        'sessions_count': len(sessions_storage_auth),
+        'flashcards_count': len(flashcards_storage),
+        'environment': {
+            'flask_version': '2.3.3',
+            'python_version': '3.x',
+            'cors_enabled': True
+        },
+        'endpoints': [
+            '/',
+            '/auth/register',
+            '/auth/login', 
+            '/auth/forgot-password',
+            '/auth/reset-password',
+            '/auth/logout',
+            '/auth/profile',
+            '/generate',
+            '/flashcards',
+            '/save-session',
+            '/export/json',
+            '/user/sessions',
+            '/status',
+            '/health',
+            '/debug'
+        ]
+    })
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found', 'path': request.path}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error', 'message': str(error)}), 500
+
+@app.before_request
+def log_request():
+    """Log all requests for debugging"""
+    print(f"[{datetime.now().isoformat()}] {request.method} {request.path} - {request.remote_addr}")
 
 if __name__ == '__main__':
     print("🚀 Starting AI Study Buddy Demo Mode")
