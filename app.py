@@ -37,6 +37,7 @@ def create_database():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS flashcards (
                 id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36),
                 question TEXT NOT NULL,
                 answer TEXT NOT NULL,
                 subject VARCHAR(100),
@@ -48,6 +49,7 @@ def create_database():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS study_sessions (
                 id VARCHAR(36) PRIMARY KEY,
+                user_id VARCHAR(36),
                 session_name VARCHAR(200),
                 flashcard_ids JSON,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -139,7 +141,7 @@ def create_fallback_flashcards(notes, num_cards):
     
     return flashcards
 
-def save_flashcards_to_db(flashcards, subject="General"):
+def save_flashcards_to_db(flashcards, subject="General", user_id=None):
     """Save flashcards to database"""
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
@@ -148,10 +150,16 @@ def save_flashcards_to_db(flashcards, subject="General"):
         saved_ids = []
         for card in flashcards:
             card_id = str(uuid.uuid4())
-            cursor.execute("""
-                INSERT INTO flashcards (id, question, answer, subject)
-                VALUES (%s, %s, %s, %s)
-            """, (card_id, card['question'], card['answer'], subject))
+            if user_id:
+                cursor.execute("""
+                    INSERT INTO flashcards (id, user_id, question, answer, subject)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (card_id, user_id, card['question'], card['answer'], subject))
+            else:
+                cursor.execute("""
+                    INSERT INTO flashcards (id, question, answer, subject)
+                    VALUES (%s, %s, %s, %s)
+                """, (card_id, card['question'], card['answer'], subject))
             saved_ids.append(card_id)
         
         conn.commit()
@@ -188,8 +196,9 @@ def generate():
         # Generate flashcards
         flashcards = generate_flashcards(notes, num_cards)
         
-        # Save to database
-        card_ids = save_flashcards_to_db(flashcards, subject)
+        # Save to database with user context if available
+        user_id = getattr(request, 'user', {}).get('user_id') if hasattr(request, 'user') else None
+        card_ids = save_flashcards_to_db(flashcards, subject, user_id)
         
         return jsonify({
             'flashcards': flashcards,

@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<<<<<<< HEAD
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Study Buddy - Flashcard Generator</title>
@@ -44,6 +43,58 @@
             font-size: 1.2rem;
             opacity: 0.9;
             font-weight: 300;
+        }
+
+        .auth-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .auth-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+
+        .auth-tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .auth-tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .auth-form {
+            display: none;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .user-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: white;
+            display: none;
+        }
+
+        .user-info.show {
+            display: block;
         }
 
         .main-content {
@@ -134,6 +185,14 @@
 
         .btn-secondary:hover {
             box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
         }
 
         .loading {
@@ -254,6 +313,12 @@
             border: 1px solid #f5c6cb;
         }
 
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
         .stats {
             display: flex;
             justify-content: space-between;
@@ -278,6 +343,10 @@
             color: #666;
         }
 
+        .hidden {
+            display: none !important;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -300,7 +369,67 @@
             <p>Transform your study notes into interactive flashcards instantly!</p>
         </div>
 
-        <div class="main-content">
+        <!-- Authentication Section -->
+        <div class="auth-section" id="authSection">
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchTab('login', event)">Login</div>
+                <div class="auth-tab" onclick="switchTab('register', event)">Sign Up</div>
+            </div>
+            
+            <!-- Login Form -->
+            <form class="auth-form active" id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username:</label>
+                    <input type="text" id="loginUsername" class="form-control" placeholder="Enter your username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginPassword">Password:</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Login
+                </button>
+            </form>
+            
+            <!-- Register Form -->
+            <form class="auth-form" id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username:</label>
+                    <input type="text" id="registerUsername" class="form-control" placeholder="Choose a username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerEmail">Email:</label>
+                    <input type="email" id="registerEmail" class="form-control" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registerPassword">Password:</label>
+                    <input type="password" id="registerPassword" class="form-control" placeholder="Choose a password" required>
+                </div>
+                
+                <button type="submit" class="btn">
+                    <i class="fas fa-user-plus"></i>
+                    Sign Up
+                </button>
+            </form>
+        </div>
+
+        <!-- User Info Section -->
+        <div class="user-info" id="userInfo">
+            <h3>Welcome, <span id="userDisplayName"></span>!</h3>
+            <p>You're logged in and ready to create flashcards.</p>
+            <button class="btn btn-danger" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </button>
+        </div>
+
+        <!-- Main Content (Hidden until login) -->
+        <div class="main-content hidden" id="mainContent">
             <!-- Input Section -->
             <div class="input-section">
                 <h2 class="section-title">
@@ -390,6 +519,200 @@
     </div>
 
     <script>
+        class AuthManager {
+            constructor() {
+                this.currentUser = null;
+                this.sessionToken = localStorage.getItem('sessionToken');
+                this.init();
+            }
+
+            init() {
+                this.bindAuthEvents();
+                this.checkAuthStatus();
+            }
+
+            bindAuthEvents() {
+                document.getElementById('loginForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.login();
+                });
+
+                document.getElementById('registerForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.register();
+                });
+            }
+
+            async login() {
+                const username = document.getElementById('loginUsername').value.trim();
+                const password = document.getElementById('loginPassword').value;
+
+                if (!username || !password) {
+                    this.showAlert('Please enter both username and password', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.currentUser = data.user;
+                        this.sessionToken = data.user.session_token;
+                        localStorage.setItem('sessionToken', this.sessionToken);
+                        this.showAlert('Login successful!', 'success');
+                        this.showMainContent();
+                    } else {
+                        this.showAlert(data.error || 'Login failed', 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Network error. Please try again.', 'error');
+                }
+            }
+
+            async register() {
+                const username = document.getElementById('registerUsername').value.trim();
+                const email = document.getElementById('registerEmail').value.trim();
+                const password = document.getElementById('registerPassword').value;
+
+                if (!username || !email || !password) {
+                    this.showAlert('Please fill in all fields', 'error');
+                    return;
+                }
+
+                if (username.length < 3) {
+                    this.showAlert('Username must be at least 3 characters', 'error');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    this.showAlert('Password must be at least 6 characters', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ username, email, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.showAlert('Registration successful! Please login.', 'success');
+                        switchTab('login');
+                        document.getElementById('registerForm').reset();
+                    } else {
+                        this.showAlert(data.error || 'Registration failed', 'error');
+                    }
+                } catch (error) {
+                    this.showAlert('Network error. Please try again.', 'error');
+                }
+            }
+
+            async logout() {
+                try {
+                    await fetch('/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.sessionToken}`
+                        }
+                    });
+                } catch (error) {
+                    console.log('Logout error:', error);
+                }
+
+                this.currentUser = null;
+                this.sessionToken = null;
+                localStorage.removeItem('sessionToken');
+                this.showAuthSection();
+                this.showAlert('Logged out successfully', 'info');
+            }
+
+            async checkAuthStatus() {
+                if (this.sessionToken) {
+                    try {
+                        const response = await fetch('/auth/profile', {
+                            headers: {
+                                'Authorization': `Bearer ${this.sessionToken}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            const userData = await response.json();
+                            this.currentUser = {
+                                ...userData,
+                                session_token: this.sessionToken
+                            };
+                            this.showMainContent();
+                        } else {
+                            localStorage.removeItem('sessionToken');
+                            this.sessionToken = null;
+                        }
+                    } catch (error) {
+                        localStorage.removeItem('sessionToken');
+                        this.sessionToken = null;
+                    }
+                }
+            }
+
+            showMainContent() {
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('userInfo').classList.add('show');
+                document.getElementById('mainContent').classList.remove('hidden');
+                document.getElementById('userDisplayName').textContent = this.currentUser.username;
+                
+                // Initialize flashcard manager
+                if (!window.flashcardManager) {
+                    window.flashcardManager = new FlashcardManager();
+                }
+            }
+
+            showAuthSection() {
+                document.getElementById('authSection').classList.remove('hidden');
+                document.getElementById('userInfo').classList.remove('show');
+                document.getElementById('mainContent').classList.add('hidden');
+            }
+
+            showAlert(message, type) {
+                const container = document.getElementById('alertContainer');
+                
+                if (!message) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="alert alert-${type}">
+                        ${message}
+                    </div>
+                `;
+
+                if (type === 'success' || type === 'info') {
+                    setTimeout(() => {
+                        container.innerHTML = '';
+                    }, 3000);
+                }
+            }
+
+            getAuthHeaders() {
+                return {
+                    'Authorization': `Bearer ${this.sessionToken}`,
+                    'Content-Type': 'application/json'
+                };
+            }
+        }
+
         class FlashcardManager {
             constructor() {
                 this.flashcards = [];
@@ -422,19 +745,17 @@
                 const numCards = parseInt(document.getElementById('numCards').value);
 
                 if (!notes) {
-                    this.showAlert('Please enter your study notes!', 'error');
+                    window.authManager.showAlert('Please enter your study notes!', 'error');
                     return;
                 }
 
                 this.showLoading(true);
-                this.showAlert('', 'success');
+                window.authManager.showAlert('', 'success');
 
                 try {
                     const response = await fetch('/generate', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: window.authManager.getAuthHeaders(),
                         body: JSON.stringify({
                             notes: notes,
                             subject: subject,
@@ -449,12 +770,12 @@
                         this.originalOrder = [...this.flashcards];
                         this.currentIndex = 0;
                         this.displayFlashcards();
-                        this.showAlert(data.message, 'success');
+                        window.authManager.showAlert(data.message, 'success');
                     } else {
-                        this.showAlert(data.error || 'Failed to generate flashcards', 'error');
+                        window.authManager.showAlert(data.error || 'Failed to generate flashcards', 'error');
                     }
                 } catch (error) {
-                    this.showAlert('Network error. Please try again.', 'error');
+                    window.authManager.showAlert('Network error. Please try again.', 'error');
                 } finally {
                     this.showLoading(false);
                 }
@@ -534,7 +855,7 @@
                 }
                 this.currentIndex = 0;
                 this.displayFlashcards();
-                this.showAlert('Cards shuffled!', 'success');
+                window.authManager.showAlert('Cards shuffled!', 'success');
             }
 
             async saveSession() {
@@ -544,9 +865,7 @@
                 try {
                     const response = await fetch('/save-session', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: window.authManager.getAuthHeaders(),
                         body: JSON.stringify({
                             session_name: sessionName,
                             flashcard_ids: this.flashcards.map(card => card.id || 'temp-id')
@@ -555,18 +874,20 @@
 
                     const data = await response.json();
                     if (response.ok) {
-                        this.showAlert('Session saved successfully!', 'success');
+                        window.authManager.showAlert('Session saved successfully!', 'success');
                     } else {
-                        this.showAlert(data.error || 'Failed to save session', 'error');
+                        window.authManager.showAlert(data.error || 'Failed to save session', 'error');
                     }
                 } catch (error) {
-                    this.showAlert('Failed to save session', 'error');
+                    window.authManager.showAlert('Failed to save session', 'error');
                 }
             }
 
             async exportFlashcards() {
                 try {
-                    const response = await fetch('/export/json');
+                    const response = await fetch('/export/json', {
+                        headers: window.authManager.getAuthHeaders()
+                    });
                     const data = await response.json();
                     
                     if (response.ok) {
@@ -579,18 +900,20 @@
                         a.download = 'flashcards.json';
                         a.click();
                         URL.revokeObjectURL(url);
-                        this.showAlert('Flashcards exported successfully!', 'success');
+                        window.authManager.showAlert('Flashcards exported successfully!', 'success');
                     } else {
-                        this.showAlert(data.error || 'Failed to export', 'error');
+                        window.authManager.showAlert(data.error || 'Failed to export', 'error');
                     }
                 } catch (error) {
-                    this.showAlert('Failed to export flashcards', 'error');
+                    window.authManager.showAlert('Failed to export flashcards', 'error');
                 }
             }
 
             async loadSavedFlashcards() {
                 try {
-                    const response = await fetch('/flashcards');
+                    const response = await fetch('/flashcards', {
+                        headers: window.authManager.getAuthHeaders()
+                    });
                     const data = await response.json();
                     
                     if (response.ok && data.flashcards.length > 0) {
@@ -620,155 +943,28 @@
                     generateBtn.disabled = false;
                 }
             }
+        }
 
-            showAlert(message, type) {
-                const container = document.getElementById('alertContainer');
-                
-                if (!message) {
-                    container.innerHTML = '';
-                    return;
-                }
+        // Global functions
+        function switchTab(tabName, event) {
+            // Update tab styling
+            document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update form visibility
+            document.querySelectorAll('.auth-form').forEach(form => form.classList.remove('active'));
+            document.getElementById(tabName + 'Form').classList.add('active');
+        }
 
-                container.innerHTML = `
-                    <div class="alert alert-${type}">
-                        ${message}
-                    </div>
-                `;
-
-                if (type === 'success') {
-                    setTimeout(() => {
-                        container.innerHTML = '';
-                    }, 3000);
-                }
-            }
+        function logout() {
+            window.authManager.logout();
         }
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', () => {
-            new FlashcardManager();
+            window.authManager = new AuthManager();
         });
     </script>
-=======
-  <meta charset="UTF-8">
-  <title>AI Study Buddy — Flashcard Generator</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f4f6f8;
-    }
-    h1 {
-      text-align: center;
-      color: #2c3e50;
-    }
-    textarea {
-      width: 100%;
-      height: 120px;
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-    button {
-      display: block;
-      margin: 10px auto;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      background-color: #3498db;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
-    #flashcards {
-      margin-top: 20px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 15px;
-    }
-    .card {
-      background: white;
-      width: 100%;
-      height: 150px;
-      perspective: 1000px;
-      cursor: pointer;
-    }
-    .inner-card {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      text-align: center;
-      transition: transform 0.6s;
-      transform-style: preserve-3d;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      border-radius: 12px;
-    }
-    .card:hover .inner-card {
-      transform: rotateY(180deg);
-    }
-    .front, .back {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      backface-visibility: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px;
-      border-radius: 12px;
-      font-size: 14px;
-    }
-    .front {
-      background-color: #3498db;
-      color: white;
-    }
-    .back {
-      background-color: #ecf0f1;
-      color: #2c3e50;
-      transform: rotateY(180deg);
-    }
-  </style>
-</head>
-<body>
-  <h1>AI Study Buddy — Flashcard Generator</h1>
-  <textarea id="notes" placeholder="Paste your study notes here..."></textarea>
-  <button onclick="generate()">Generate Flashcards</button>
-  <div id="flashcards"></div>
-
-  <script>
-    async function generate() {
-      const notes = document.getElementById("notes").value;
-
-      const response = await fetch("/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes })
-      });
-
-      const data = await response.json();
-      const container = document.getElementById("flashcards");
-      container.innerHTML = "";
-
-      data.flashcards.forEach(fc => {
-        const card = document.createElement("div");
-        card.className = "card";
-
-        card.innerHTML = `
-          <div class="inner-card">
-            <div class="front">Q: ${fc.question}</div>
-            <div class="back">A: ${fc.answer}</div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-  </script>
->>>>>>> a267e01f0482997f45023322ba08a2be5e3807bc
 </body>
 </html>
 
