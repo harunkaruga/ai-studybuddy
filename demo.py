@@ -555,6 +555,17 @@ def debug_info():
         ]
     })
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0',
+        'deployment': 'render',
+        'cors_enabled': True
+    })
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found', 'path': request.path}), 404
@@ -575,5 +586,9 @@ if __name__ == '__main__':
     print("📖 For full version with database, run: python app.py")
     print("-" * 50)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Production configuration for Render
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
+    app.run(debug=debug, host='0.0.0.0', port=port)
 
