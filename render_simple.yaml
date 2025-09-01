@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ai-study-buddy-simple
+    env: python
+    buildCommand: pip install -r requirements_simple.txt
+    startCommand: python render_simple.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
+      - key: FLASK_ENV
+        value: production
